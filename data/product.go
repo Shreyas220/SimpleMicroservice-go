@@ -26,6 +26,7 @@ func (p *Product) FromJSON(r io.Reader) error {
 // Products is a collection of Product
 type Products []*Product
 
+//Encoder
 func (p *Products) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(p)
@@ -75,9 +76,17 @@ func getNextID() int {
 var productList = []*Product{
 	&Product{
 		ID:          1,
-		Name:        "RAGE",
-		Description: "Fuckin awesome",
+		Name:        "RAGE ~~Classic",
+		Description: "Classic arabic coffee",
 		Price:       6.9,
+		CreatedOn:   time.Now().UTC().String(),
+		UpdatedOn:   time.Now().UTC().String(),
+	},
+	&Product{
+		ID:          2,
+		Name:        "RAGE DarkChocolate",
+		Description: "Vitamin hai isme",
+		Price:       9,
 		CreatedOn:   time.Now().UTC().String(),
 		UpdatedOn:   time.Now().UTC().String(),
 	},

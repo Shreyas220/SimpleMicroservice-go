@@ -15,10 +15,10 @@ func main() {
 
 	//convience method (default server munx)
 	l := log.New(os.Stdout, "SimpleMicroservice-go", log.LstdFlags)
-	hh := handlers.NewHello(l)
+	ph := handlers.NewProducts(l)
 
 	sm := http.NewServeMux()
-	sm.Handle("/", hh)
+	sm.Handle("/", ph)
 	//converting a function into a handler
 	//http.HandleFunc()
 
@@ -34,13 +34,14 @@ func main() {
 	//http.ListenAndServe(":9090", sm)
 
 	go func() {
+		l.Println("Starting server on port 9090")
 		err := s.ListenAndServe()
 		if err != nil {
 			l.Fatal(err)
 		}
 	}()
 
-	sigChan := make(chan os.Signal)
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	signal.Notify(sigChan, os.Kill)
 	sig := <-sigChan
