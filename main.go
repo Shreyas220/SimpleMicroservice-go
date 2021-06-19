@@ -1,66 +1,40 @@
 package main
 
 import (
-	"context"
-	"log"
-	"net/http"
+	"fmt"
+	"net"
 	"os"
-	"os/signal"
-	"time"
 
-	"github.com/Shreyas220/SimpleMicroservice-go/handlers"
-	"github.com/gorilla/mux"
+	protos "github.com/Shreyas220/SimpleMicroservice-go/protos/currency"
+	"github.com/Shreyas220/SimpleMicroservice-go/server"
+	"github.com/hashicorp/go-hclog"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
+	log := hclog.Default()
 
-	//convience method (default server munx)
-	l := log.New(os.Stdout, "SimpleMicroservice-go", log.LstdFlags)
-	ph := handlers.NewProducts(l)
+	// create a new gRPC server, use WithInsecure to allow http connections
+	gs := grpc.NewServer()
 
-	sm := mux.NewRouter()
+	// create an instance of the Currency server
+	c := server.NewCurrency(log)
 
-	getRouter := sm.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/", ph.GetProducts)
+	// register the currency server
+	protos.RegisterCurrencyServer(gs, c)
 
-	putRouter := sm.Methods(http.MethodPut).Subrouter()
-	//-> middleware -> Update
-	putRouter.HandleFunc("/{id:[0-9]+}", ph.UpdateProducts)
-	putRouter.Use(ph.MiddlewareValidateProduct)
+	// register the reflection service which allows clients to determine the methods
+	// for this gRPC service
+	reflection.Register(gs)
 
-	postRouter := sm.Methods(http.MethodPost).Subrouter()
-	postRouter.HandleFunc("/", ph.AddProducts)
-	postRouter.Use(ph.MiddlewareValidateProduct)
-
-	s := &http.Server{
-		Addr:         ":9090",
-		Handler:      sm,
-		IdleTimeout:  120 * time.Second,
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 1 * time.Second,
+	// create a TCP socket for inbound server connections
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", 9092))
+	if err != nil {
+		log.Error("Unable to create listener", "error", err)
+		os.Exit(1)
 	}
 
-	//contructs an http server
-	//http.ListenAndServe(":9090", sm)
-
-	go func() {
-		l.Println("Starting server on port 9090")
-		err := s.ListenAndServe()
-		if err != nil {
-			l.Fatal(err)
-		}
-	}()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-	signal.Notify(sigChan, os.Kill)
-	sig := <-sigChan
-	l.Println("REcieved terminate, graceful shutdown", sig)
-
-	tc, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	s.Shutdown(tc)
+	// listen for requests
+	gs.Serve(l)
 }
-
-//when a request comes there is default handler --> http ServeMux it determines which handler registered against to call  and pass through response writer and request
-//Time Out - resources are Finite....multiple of block connections --> basic denial of service attack
-//graceful ShutDown (want to shut down Server for any reason ) s.Shutdown --> will wait for all request to complete and then shutdown(no new request will be accepted)
